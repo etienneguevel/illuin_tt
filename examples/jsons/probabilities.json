@@ -1,0 +1,6 @@
+{
+  "prob_desc_description": "A bag contains $$$r$$$ red and $$$b$$$ blue balls. At each step a ball is drawn uniformly at random and is not returned to the bag. The process stops as soon as two consecutive draws have the same color. Compute the expected number of draws, and print it as $$$p \\cdot q^{-1}$$$ modulo $$$998244353$$$, where $$$p/q$$$ is the irreducible form of the expected value.",
+  "tags": [
+    "probabilities"
+  ]
+}

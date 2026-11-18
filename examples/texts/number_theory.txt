@@ -1,0 +1,1 @@
+Given an array $$$a$$$ of $$$n$$$ positive integers, count the pairs of indices $$$i < j$$$ such that $$$\gcd(a_i, a_j) = 1$$$ and the product $$$a_i \cdot a_j$$$ is a perfect square. Since every prime factor matters, you may assume that $$$a_i \le 10^6$$$. Print the number of such pairs modulo $$$10^9 + 7$$$.

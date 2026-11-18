@@ -8,6 +8,7 @@ Usage:
   uv run python -m illuin_tt.scripts.generate --config-path configs/generate.yaml input=path/to/texts
 """
 import json
+import time
 from argparse import ArgumentParser
 from pathlib import Path
 
@@ -113,6 +114,7 @@ def main():
         classifier.to(device)
 
     # Encode the texts
+    start = time.perf_counter()
     emb = embedder.encode(
         [text for _, text in docs],
         batch_size=cfg.get("batch_size", 8),
@@ -120,10 +122,13 @@ def main():
         show_progress_bar=True,
     )
     emb = emb.float().cpu().numpy()
+    embed_time = time.perf_counter() - start
 
     # Make the tag predictions
+    start = time.perf_counter()
     scores = np.asarray(classifier.predict_proba(emb))
     preds = np.asarray(classifier.predict(emb)).astype(int)
+    classify_time = time.perf_counter() - start
 
     tags = list(TARGET_TAGS.values())
     predictions = [
@@ -143,6 +148,13 @@ def main():
         print(f"{p['source']}: {', '.join(p['tags']) or '-'}")
     if len(predictions) > 10:
         print(f"... ({len(predictions) - 10} more)")
+
+    total_time = embed_time + classify_time
+    print(
+        f"Inference time: {total_time:.2f}s for {len(docs)} documents "
+        f"({1000 * total_time / len(docs):.1f} ms/doc, "
+        f"embedding {embed_time:.2f}s, classification {classify_time:.3f}s)"
+    )
     print(f"Predictions saved to: {output}")
 
 

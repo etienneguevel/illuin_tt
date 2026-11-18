@@ -1,0 +1,1 @@
+You are given $$$n$$$ points on the plane, no three of which are collinear. Choose three of them so that the triangle they form has the largest possible area, and print this area. Then determine how many of the remaining points lie strictly inside the chosen triangle. Coordinates are integers with absolute value at most $$$10^9$$$.

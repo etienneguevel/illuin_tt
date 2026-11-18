@@ -1,0 +1,1 @@
+You are given a string $$$s$$$ of lowercase Latin letters and $$$q$$$ queries. Each query gives a pattern $$$p$$$, and you must report how many substrings of $$$s$$$ are equal to some cyclic rotation of $$$p$$$. Overlapping occurrences are counted separately. The total length of all patterns does not exceed $$$10^6$$$.

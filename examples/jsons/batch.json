@@ -1,0 +1,15 @@
+[
+  {
+    "prob_desc_description": "Find the number of sequences of length $$$n$$$ of integers from $$$1$$$ to $$$m$$$ whose sum of elements is divisible by $$$k$$$ and in which no two adjacent elements are equal. Derive a closed formula for the answer and print it modulo $$$10^9 + 7$$$.",
+    "tags": [
+      "math"
+    ]
+  },
+  {
+    "prob_desc_description": "A network of $$$n$$$ servers is connected by $$$n - 1$$$ cables so that every server can reach every other one. Removing a cable splits the network into two components. For each cable, compute the product of the sizes of the two components it separates, and print the cable for which this product is the largest.",
+    "tags": [
+      "graphs",
+      "trees"
+    ]
+  }
+]

@@ -1,0 +1,6 @@
+{
+  "prob_desc_description": "Alice and Bob play a game on $$$n$$$ piles of stones, taking turns with Alice moving first. On a turn, a player selects a non-empty pile and removes any number of stones that is a divisor of the current pile size. The player who cannot make a move loses. Assuming both players play optimally, determine who wins the game.",
+  "tags": [
+    "games"
+  ]
+}
