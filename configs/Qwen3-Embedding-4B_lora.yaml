@@ -1,0 +1,32 @@
+seed: 24
+model_name: Qwen/Qwen3-Embedding-4B
+data_path: data/code_classification_dataset
+field: prob_desc_description
+
+# Embedder
+max_seq_length: 512
+dtype: bfloat16
+gradient_checkpointing: true
+encode_batch_size: 16
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+# Classification head
+n_layers: 2
+hidden_size: 1024
+
+# Training
+batch_size: 4
+grad_accum: 8
+lr_lora: 1.0e-4
+lr_head: 1.0e-3
+weight_decay: 0.01
+warmup_ratio: 0.1
+max_grad_norm: 1.0
+num_epochs: 5
+
+output_dir: outputs

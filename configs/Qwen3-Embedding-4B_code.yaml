@@ -1,0 +1,15 @@
+seed: 24
+model_name: Qwen/Qwen3-Embedding-4B
+data_path: data/code_classification_dataset
+cache_dir: data/cache/Qwen3-Embedding-4B_code
+field: source_code
+max_tokens: 16000
+
+hidden_size: 1024
+n_layers: 2
+num_epochs: 10
+
+knn:
+  n_neighbors: 10
+  metric: cosine
+  weights: distance

@@ -1,0 +1,12 @@
+seed: 24
+data_path: data/code_classification_dataset
+field: source_code
+
+# TfidfVectorizer
+max_features: 20000
+ngram_range: [1, 2]
+min_df: 2
+sublinear_tf: true
+
+output_dir: outputs
+

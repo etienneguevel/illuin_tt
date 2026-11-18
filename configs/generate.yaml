@@ -1,0 +1,17 @@
+# Run folder produced by embedding_method.py or lora_finetune.py (holds config.yaml + weights)
+run_dir: outputs/Qwen3-Embedding-4B_lora_20261118-112852
+
+# Classifier to use: mlp (models/mlp.pt, or head.pt for LoRA runs) | logistic_regression
+model: mlp
+
+# Path to a LoRA adapter folder (e.g. <run_dir>/lora_adapter); null to use the frozen embedder
+lora_adapter: outputs/Qwen3-Embedding-4B_lora_20261118-112852/lora_adapter
+
+# A .txt file, a .json file (object or list of objects), or a folder of .txt / .json files
+input: data/code_classification_dataset/
+# JSON key holding the text; null -> the `field` used in the training run
+field: null
+
+output: predictions.json
+batch_size: 8
+device: auto
