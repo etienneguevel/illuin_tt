@@ -1,6 +1,8 @@
 # illuin-tt
 
-Multi-label classification of coding problems into 8 tags:
+This repo contains the code for the technical test with Illuin on a subset of the xCodeEval dataset.
+
+The task consists of a multi-label classification problem of coding problems, focusing onto 8 tags:
 `math`, `graphs`, `strings`, `number theory`, `trees`, `geometry`, `games`, `probabilities`.
 
 Three approaches are implemented and report their results in the same format:
