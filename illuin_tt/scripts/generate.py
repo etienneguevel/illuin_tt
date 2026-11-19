@@ -1,8 +1,12 @@
 """
-Predict tags for new texts with a model trained by embedding_method.py or lora_finetune.py.
+Predict tags for new texts with a model trained by embedding_method.py, lora_finetune.py or
+dual_lora_finetune.py.
 
 Loads the embedder of the training run (+ LoRA adapter if `lora_adapter` is set), embeds the
 inputs, applies the chosen classifier and writes the predicted tags and per-tag scores to JSON.
+For dual-encoder runs (an `encoders` block in the run config), every field is embedded by its own
+encoder (+ adapter from <run_dir>/lora_adapters/<field>) and mixed by the saved attention pooling;
+inputs must then be JSON objects holding every field.
 
 Usage:
   uv run python -m illuin_tt.scripts.generate --config-path configs/generate.yaml input=path/to/texts
@@ -20,6 +24,7 @@ from sentence_transformers import SentenceTransformer
 
 from illuin_tt.loaders import TARGET_TAGS
 from illuin_tt.models.mlp import MLP
+from illuin_tt.models.pooling import AttentionPooling
 from illuin_tt.utils import get_device
 
 
@@ -33,18 +38,25 @@ def get_args():
     return parser.parse_args()
 
 
-def _texts_from_json(path: Path, field: str) -> list[tuple[str, str]]:
+def _get_text(d: dict, field: str | list[str]):
+    return d[field] if isinstance(field, str) else {f: d[f] for f in field}
+
+
+def _texts_from_json(path: Path, field: str | list[str]) -> list[tuple[str, str | dict]]:
     with open(path) as f:
         data = json.load(f)
     if isinstance(data, dict):
-        return [(str(path), data[field])]
+        return [(str(path), _get_text(data, field))]
     if isinstance(data, list):
-        return [(f"{path}[{i}]", d[field]) for i, d in enumerate(data)]
+        return [(f"{path}[{i}]", _get_text(d, field)) for i, d in enumerate(data)]
     raise ValueError(f"{path}: expected a JSON object or a list of objects")
 
 
-def load_inputs(input_path: str, field: str) -> list[tuple[str, str]]:
-    """Return (source, text) pairs from a .txt, a .json, or a folder of .txt / .json files."""
+def load_inputs(input_path: str, field: str | list[str]) -> list[tuple[str, str | dict]]:
+    """
+    Return (source, text) pairs from a .txt, a .json, or a folder of .txt / .json files.
+    With a list of fields, text is a {field: text} dict and only .json inputs are supported.
+    """
     path = Path(input_path)
     if path.is_dir():
         files = sorted(p for p in path.iterdir() if p.suffix in (".txt", ".json"))
@@ -52,6 +64,8 @@ def load_inputs(input_path: str, field: str) -> list[tuple[str, str]]:
             raise ValueError(f"No .txt or .json files in {path}")
         return [doc for p in files for doc in load_inputs(str(p), field)]
     if path.suffix == ".txt":
+        if not isinstance(field, str):
+            raise ValueError(f"{path}: dual-encoder runs need .json inputs holding the fields {field}")
         return [(str(path), path.read_text())]
 
     if path.suffix == ".json":
@@ -60,18 +74,46 @@ def load_inputs(input_path: str, field: str) -> list[tuple[str, str]]:
     raise ValueError(f"Unsupported input {path}: expected a .txt, a .json or a folder")
 
 
-def load_embedder(cfg, run_cfg, device) -> SentenceTransformer:
+def load_embedder(enc_cfg, lora_adapter, device) -> SentenceTransformer:
     """Embedder of the training run, with its dtype / max_seq_length and optional LoRA adapter."""
-    model_kwargs = {"dtype": getattr(torch, run_cfg.dtype)} if run_cfg.get("dtype") else {}
-    model = SentenceTransformer(run_cfg.model_name, device=str(device), model_kwargs=model_kwargs)
-    if run_cfg.get("max_seq_length"):
-        model.max_seq_length = run_cfg.max_seq_length
+    model_kwargs = {"dtype": getattr(torch, enc_cfg.dtype)} if enc_cfg.get("dtype") else {}
+    model = SentenceTransformer(enc_cfg.model_name, device=str(device), model_kwargs=model_kwargs)
+    if enc_cfg.get("max_seq_length"):
+        model.max_seq_length = enc_cfg.max_seq_length
 
-    if cfg.get("lora_adapter"):
-        print(f"Loading LoRA adapter from {cfg.lora_adapter}")
-        model[0].auto_model.load_adapter(str(cfg.lora_adapter))
+    if lora_adapter:
+        print(f"Loading LoRA adapter from {lora_adapter}")
+        model[0].auto_model.load_adapter(str(lora_adapter))
     model.eval()
     return model
+
+
+def load_dual(run_dir: Path, run_cfg, device) -> tuple[dict[str, SentenceTransformer], AttentionPooling]:
+    """One embedder per field (+ its adapter if it was fine-tuned) and the attention pooling."""
+    models = {}
+    for f, enc_cfg in run_cfg.encoders.items():
+        adapter = run_dir / "lora_adapters" / f
+        models[f] = load_embedder(enc_cfg, adapter if adapter.exists() else None, device)
+
+    pooling = AttentionPooling(
+        {f: m.get_embedding_dimension() for f, m in models.items()}, run_cfg.pooling.dim
+    )
+    pooling.load_state_dict(torch.load(run_dir / "pooling.pt", map_location="cpu"))
+    return models, pooling.to(device).eval()
+
+
+def encode(embedders, pooling, texts: list, batch_size: int) -> np.ndarray:
+    """Embed the texts (or {field: text} dicts through every encoder + pooling)."""
+    kwargs = {"batch_size": batch_size, "convert_to_tensor": True, "show_progress_bar": True}
+    if pooling is None:
+        return embedders.encode(texts, **kwargs).float().cpu().numpy()
+
+    with torch.no_grad():
+        embs = {
+            f: m.encode([t[f] for t in texts], **kwargs).float().to(next(pooling.parameters()).device)
+            for f, m in embedders.items()
+        }
+        return pooling(embs).cpu().numpy()
 
 
 def load_classifier(cfg, run_dir: Path, run_cfg):
@@ -98,7 +140,8 @@ def main():
 
     run_dir = Path(cfg.run_dir)
     run_cfg = OmegaConf.load(run_dir / "config.yaml")
-    field = cfg.get("field") or run_cfg.field
+    dual = "encoders" in run_cfg
+    field = list(run_cfg.encoders) if dual else (cfg.get("field") or run_cfg.field)
 
     device = get_device(cfg.get("device", "auto"))
     print(f"Using device: {device}")
@@ -108,20 +151,17 @@ def main():
     print(f"Loaded {len(docs)} documents from {cfg.input}")
 
     # Load the embedder and classifier
-    embedder = load_embedder(cfg, run_cfg, device)
+    if dual:
+        embedder, pooling = load_dual(run_dir, run_cfg, device)
+    else:
+        embedder, pooling = load_embedder(run_cfg, cfg.get("lora_adapter"), device), None
     classifier = load_classifier(cfg, run_dir, run_cfg)
     if isinstance(classifier, MLP):
         classifier.to(device)
 
     # Encode the texts
     start = time.perf_counter()
-    emb = embedder.encode(
-        [text for _, text in docs],
-        batch_size=cfg.get("batch_size", 8),
-        convert_to_tensor=True,
-        show_progress_bar=True,
-    )
-    emb = emb.float().cpu().numpy()
+    emb = encode(embedder, pooling, [text for _, text in docs], cfg.get("batch_size", 8))
     embed_time = time.perf_counter() - start
 
     # Make the tag predictions

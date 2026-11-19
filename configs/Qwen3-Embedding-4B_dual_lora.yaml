@@ -1,0 +1,48 @@
+seed: 24
+data_path: data/code_classification_dataset
+
+# One encoder per field (key = JSON field of the dataset); `lora: null` freezes the encoder
+encoders:
+  prob_desc_description:
+    model_name: Qwen/Qwen3-Embedding-4B
+    max_seq_length: 512
+    dtype: bfloat16
+    gradient_checkpointing: true
+    lora:
+      r: 16
+      alpha: 32
+      dropout: 0.05
+      target_modules: [q_proj, k_proj, v_proj, o_proj]
+  source_code:
+    model_name: Qwen/Qwen3-Embedding-4B
+    max_seq_length: 1024
+    dtype: bfloat16
+    gradient_checkpointing: true
+    lora:
+      r: 16
+      alpha: 32
+      dropout: 0.05
+      target_modules: [q_proj, k_proj, v_proj, o_proj]
+encode_batch_size: 16
+
+# Attention pooling mixing the field embeddings (dim = input size of the head)
+pooling:
+  dim: 1024
+  dropout: 0.1
+
+# Classification head
+n_layers: 2
+hidden_size: 1024
+
+# Training (per encoder lr: encoders.<field>.lr_lora)
+batch_size: 4
+grad_accum: 8
+lr_lora: 1.0e-4
+lr_pooling: 1.0e-3
+lr_head: 1.0e-3
+weight_decay: 0.01
+warmup_ratio: 0.1
+max_grad_norm: 1.0
+num_epochs: 5
+
+output_dir: outputs

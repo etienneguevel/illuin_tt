@@ -1,10 +1,11 @@
-# Run folder produced by embedding_method.py or lora_finetune.py (holds config.yaml + weights)
+# Run folder produced by embedding_method.py, lora_finetune.py or dual_lora_finetune.py
 run_dir: outputs/Qwen3-Embedding-4B_lora_20261118-112852
 
 # Classifier to use: mlp (models/mlp.pt, or head.pt for LoRA runs) | logistic_regression
 model: mlp
 
 # Path to a LoRA adapter folder (e.g. <run_dir>/lora_adapter); null to use the frozen embedder
+# (ignored for dual-encoder runs: adapters are read from <run_dir>/lora_adapters/<field>)
 lora_adapter: outputs/Qwen3-Embedding-4B_lora_20261118-112852/lora_adapter
 
 # A .txt file, a .json file (object or list of objects), or a folder of .txt / .json files

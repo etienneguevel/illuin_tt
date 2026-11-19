@@ -47,6 +47,11 @@ def load_embedder(cfg, device) -> SentenceTransformer:
 
     backbone = model[0].auto_model
 
+    # No LoRA config: frozen encoder
+    if cfg.get("lora") is None:
+        model.requires_grad_(False)
+        return model
+
     # Use activation checkpointing to save memory on forward pass
     if cfg.get("gradient_checkpointing", False):
         backbone.activation_checkpointing_enable(activation_checkpointing_kwargs={"use_reentrant": False})
